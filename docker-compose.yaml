@@ -1,0 +1,91 @@
+# nginx proxy address - http://172.17.0.1:50225
+
+
+x-logging: &default-logging
+  options:
+    max-size: '5m'
+    max-file: '1'
+  driver: json-file
+
+name: postgres
+services:
+  admin:
+    image: dockage/phppgadmin:latest
+    container_name: postgres-admin
+    restart: always
+    pull_policy: always
+    logging: *default-logging
+    stdin_open: true
+    tty: true
+    environment:
+      TZ: ${TZ:-America/New_York}
+      PHP_PG_ADMIN_SERVER_DESC: postgres
+      PHP_PG_ADMIN_SERVER_HOST: postgres-db
+      PHP_PG_ADMIN_DEFAULT_LANG: en
+      PHP_PG_ADMIN_SERVER_PORT: 5432
+      PHP_PG_ADMIN_SERVER_SSL_MODE: allow
+      PHP_PG_ADMIN_AUTO_COMPLETE: default on
+      PHP_PG_ADMIN_EXTRA_LOGIN_SECURITY: false
+      PHP_PG_ADMIN_SERVER_DEFAULT_DB: template1
+      PHP_PG_ADMIN_SERVER_PG_DUMP_PATH: /usr/bin/pg_dump
+      PHP_PG_ADMIN_SERVER_PG_DUMPALL_PATH: /usr/bin/pg_dumpall
+      PHP_PG_ADMIN_OWNED_ONLY: true
+      PHP_PG_ADMIN_SHOW_SYSTEM: false
+      PHP_PG_ADMIN_SHOW_COMMENTS: true
+      PHP_PG_ADMIN_SHOW_ADVANCED: true
+      PHP_PG_ADMIN_MIN_PASSWORD_LENGTH: 8
+      PHP_PG_ADMIN_LEFT_WIDTH: 200
+      PHP_PG_ADMIN_THEME: cappuccino
+      PHP_PG_ADMIN_SHOW_OIDS: false
+      PHP_PG_ADMIN_MAX_ROWS: 30
+      PHP_PG_ADMIN_MAX_CHARS: 50
+      PHP_PG_ADMIN_AJAX_REFRESH: 3
+      PHP_PG_ADMIN_USE_XHTML_STRICT: false
+      PHP_PG_ADMIN_HELP_BASE: http://www.postgresql.org/docs/%s/interactive/
+    ports:
+      - '172.17.0.1:50225:80'
+    depends_on:
+      db:
+        condition: service_healthy
+    extra_hosts:
+      - 'localhost:172.17.0.1'
+      - 'postgresqldb:host-gateway'
+      - 'host.docker.internal:host-gateway'
+    networks:
+      - postgres
+
+  db:
+    image: postgres:12
+    container_name: postgres-db
+    hostname: postgres-db
+    restart: always
+    pull_policy: always
+    logging: *default-logging
+    environment:
+      TZ: ${TZ:-America/New_York}
+      PGUSER: postgres
+      PGDATA: /data/postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_ADMIN_PASS:-changeme_admin_password}
+      POSTGRES_HOST_AUTH_METHOD: md5
+      POSTGRES_INITDB_ARGS: --auth-host=md5
+    ports:
+      - '5432:5432'
+    volumes:
+      - './rootfs/db/postgres:/data/postgres'
+    healthcheck:
+      test: ['CMD-SHELL', 'runuser', '-u', 'postgres', '--', 'pg_isready']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    extra_hosts:
+      - 'localhost:172.17.0.1'
+      - 'postgresqldb:host-gateway'
+      - 'host.docker.internal:host-gateway'
+    networks:
+      - postgres
+
+networks:
+  postgres:
+    name: postgres
+    external: false
