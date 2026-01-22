@@ -72,7 +72,7 @@ services:
     ports:
       - '5432:5432'
     volumes:
-      - './rootfs/db/postgres:/data/postgres'
+      - './rootfs/data/db/postgres:/data/postgres'
     healthcheck:
       test: ['CMD-SHELL', 'runuser', '-u', 'postgres', '--', 'pg_isready']
       interval: 10s
