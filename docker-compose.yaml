@@ -75,7 +75,7 @@ services:
       - 'traefik.http.services.postgres-admin.loadbalancer.server.port=80'
 
   db:
-    image: postgres:12
+    image: postgres:16
     container_name: postgres-db
     hostname: postgres-db
     restart: always
@@ -95,7 +95,7 @@ services:
     volumes:
       - './volumes/data/db/postgres:/data/postgres'
     healthcheck:
-      test: ['CMD-SHELL', 'runuser', '-u', 'postgres', '--', 'pg_isready']
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 10s
       timeout: 5s
       retries: 5
