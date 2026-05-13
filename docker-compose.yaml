@@ -42,6 +42,8 @@ services:
       PHP_PG_ADMIN_AJAX_REFRESH: 3
       PHP_PG_ADMIN_USE_XHTML_STRICT: false
       PHP_PG_ADMIN_HELP_BASE: http://www.postgresql.org/docs/%s/interactive/
+      CONTAINER_NAME: postgres-admin
+      HOSTNAME: ${BASE_HOST_NAME:-$HOSTNAME}
     ports:
       - '172.17.0.1:50225:80'
     depends_on:
@@ -53,6 +55,24 @@ services:
       - 'host.docker.internal:host-gateway'
     networks:
       - postgres
+      - proxy
+      - cloudflare
+    labels:
+      - 'traefik.enable=true'
+      - 'cloudflare.enable=true'
+      - 'traefik.docker.network=proxy'
+      - 'cloudflare.service=http://postgres-admin:80'
+      - 'cloudflare.hostname=postgres.${CLOUDFLARE_ZONE_NAME:-}'
+      - 'traefik.http.routers.postgres-admin.entrypoints=http'
+      - 'traefik.http.routers.postgres-admin-secure.tls=true'
+      - 'traefik.http.routers.postgres-admin.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
+      - 'traefik.http.middlewares.postgres-admin-https-redirect.redirectscheme.scheme=https'
+      - 'traefik.http.routers.postgres-admin.middlewares=postgres-admin-https-redirect'
+      - 'traefik.http.routers.postgres-admin-secure.entrypoints=https'
+      - 'traefik.http.routers.postgres-admin-secure.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
+      - 'traefik.http.routers.postgres-admin-secure.tls.certresolver=cloudflare'
+      - 'traefik.http.routers.postgres-admin-secure.service=postgres-admin'
+      - 'traefik.http.services.postgres-admin.loadbalancer.server.port=80'
 
   db:
     image: postgres:12
@@ -69,6 +89,7 @@ services:
       POSTGRES_PASSWORD: ${DB_ADMIN_PASS:-changeme_admin_password}
       POSTGRES_HOST_AUTH_METHOD: md5
       POSTGRES_INITDB_ARGS: --auth-host=md5
+      CONTAINER_NAME: postgres-db
     ports:
       - '5432:5432'
     volumes:
@@ -89,3 +110,7 @@ networks:
   postgres:
     name: postgres
     external: false
+  proxy:
+    external: true
+  cloudflare:
+    external: true
