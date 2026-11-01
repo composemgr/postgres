@@ -1,0 +1,76 @@
+name: postgres
+x-logging: &default-logging
+  options:
+    max-size: '5m'
+    max-file: '1'
+  driver: json-file
+
+services:
+
+  admin:
+    image: dockage/phppgadmin:latest
+    container_name: postgres-admin
+    domainname: ${BASE_DOMAIN_NAME:-example.com}
+    hostname: ${BASE_HOST_NAME:-$HOSTNAME}
+    restart: always
+    pull_policy: always
+    logging: *default-logging
+    stdin_open: true
+    tty: true
+    environment:
+      TZ: ${TZ:-America/New_York}
+      CONTAINER_NAME: postgres-admin
+      HOSTNAME: ${BASE_HOST_NAME:-$HOSTNAME}
+      PHP_PG_ADMIN_SERVER_DESC: postgres
+      PHP_PG_ADMIN_SERVER_HOST: postgres-db
+      PHP_PG_ADMIN_SERVER_PORT: 5432
+      PHP_PG_ADMIN_SERVER_SSL_MODE: allow
+      PHP_PG_ADMIN_DEFAULT_LANG: en
+      PHP_PG_ADMIN_SERVER_DEFAULT_DB: template1
+      PHP_PG_ADMIN_OWNED_ONLY: 'true'
+      PHP_PG_ADMIN_SHOW_SYSTEM: 'false'
+      PHP_PG_ADMIN_SHOW_ADVANCED: 'true'
+      PHP_PG_ADMIN_MIN_PASSWORD_LENGTH: 8
+      PHP_PG_ADMIN_THEME: cappuccino
+      PHP_PG_ADMIN_MAX_ROWS: 30
+    depends_on:
+      db:
+        condition: service_healthy
+    labels:
+      - 'cloudflare.enable=true'
+      - 'cloudflare.service=http://postgres-app:80'
+      - 'cloudflare.hostname=${BASE_HOST_NAME:-$HOSTNAME}'
+    networks:
+      - postgres
+      - cloudflare
+
+  db:
+    image: postgres:16
+    container_name: postgres-db
+    domainname: ${BASE_DOMAIN_NAME:-example.com}
+    hostname: postgres-db
+    restart: always
+    pull_policy: always
+    logging: *default-logging
+    environment:
+      TZ: ${TZ:-America/New_York}
+      CONTAINER_NAME: postgres-db
+      POSTGRES_USER: ${DB_ADMIN_NAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_ADMIN_PASS:-replace-with-a-random-password}
+    volumes:
+      - './volumes/db/postgres/postgres:/var/lib/postgresql/data:z'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_ADMIN_NAME:-postgres}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - postgres
+
+networks:
+  postgres:
+    name: postgres
+    external: false
+  cloudflare:
+    name: cloudflare
+    external: true
